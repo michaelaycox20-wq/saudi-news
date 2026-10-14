@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>أخبار السعودية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F5F4; --ink:#14201B; --muted:#5E6B65; --line:#D5DCD8;
+  --green:#0B4D3A; --sand:#B88A2B; --tab-bg:#E4EAE7;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1512; --ink:#E8EFEB; --muted:#93A39B; --line:#26332D;
+    --green:#4FB38D; --sand:#D9AE55; --tab-bg:#18221D; color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; line-height:1.7;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+}
+.wrap{max-width:760px; margin:0 auto; padding:0 18px}
+header{padding:22px 0 10px}
+h1{
+  font-family:'Noto Naskh Arabic',serif; font-weight:700; font-size:2rem;
+  margin:0; color:var(--green); letter-spacing:0;
+}
+.sub{margin:2px 0 0; color:var(--muted); font-size:.9rem}
+.bar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+  background:var(--bg); padding:10px 0; border-bottom:1px solid var(--line);
+}
+.tabs{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch}
+.tab{
+  flex:none; border:0; background:var(--tab-bg); color:var(--ink);
+  font:500 .95rem 'IBM Plex Sans Arabic',sans-serif;
+  padding:7px 16px; border-radius:999px; cursor:pointer;
+}
+.tab[aria-selected="true"]{background:var(--green); color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tab[aria-selected="true"]{color:#0E1512}}
+.tab:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--sand); outline-offset:2px}
+.search{
+  width:100%; margin-top:10px; padding:9px 14px; border-radius:10px;
+  border:1px solid var(--line); background:transparent; color:var(--ink);
+  font:400 .95rem 'IBM Plex Sans Arabic',sans-serif;
+}
+.search::placeholder{color:var(--muted)}
+.status{color:var(--muted); font-size:.85rem; padding:12px 0 4px}
+a.item{display:block; text-decoration:none; color:inherit; padding:16px 0; border-bottom:1px solid var(--line)}
+a.item .t{
+  font-family:'Noto Naskh Arabic',serif; font-weight:700; font-size:1.2rem;
+  line-height:1.8; margin:0;
+}
+a.item:hover .t{color:var(--green)}
+a.item .m{margin-top:4px; font-size:.82rem; color:var(--muted)}
+a.item .m b{color:var(--sand); font-weight:600}
+a.lead{padding:22px 0 20px; border-bottom:2px solid var(--green)}
+a.lead .t{font-size:1.7rem; line-height:1.7}
+.msg{padding:40px 0; text-align:center; color:var(--muted)}
+.msg button{
+  margin-top:10px; border:1px solid var(--line); background:transparent; color:var(--ink);
+  padding:8px 18px; border-radius:10px; font:500 .95rem 'IBM Plex Sans Arabic',sans-serif; cursor:pointer;
+}
+footer{padding:26px 0 40px; color:var(--muted); font-size:.8rem}
+@media (prefers-reduced-motion: no-preference){
+  .tab{transition:background .15s}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>أخبار السعودية</h1>
+    <p class="sub" id="updated">جارٍ التحميل…</p>
+  </header>
+
+  <div class="bar">
+    <div class="tabs" role="tablist" aria-label="التصنيفات">
+      <button class="tab" role="tab" data-cat="politics" aria-selected="true">سياسة</button>
+      <button class="tab" role="tab" data-cat="economy" aria-selected="false">اقتصاد</button>
+      <button class="tab" role="tab" data-cat="sports" aria-selected="false">رياضة</button>
+      <button class="tab" role="tab" data-cat="all" aria-selected="false">الكل</button>
+    </div>
+    <input class="search" id="q" type="search" placeholder="ابحث في العناوين" aria-label="بحث">
+  </div>
+
+  <main id="list" aria-live="polite"></main>
+
+  <footer>
+    الأخبار تُجمع تلقائياً من مصادر إخبارية متعددة. العناوين تفتح الخبر على موقع المصدر الأصلي.
+  </footer>
+</div>
+
+<script>
+var cat = 'politics', items = [];
+var list = document.getElementById('list');
+var updated = document.getElementById('updated');
+var q = document.getElementById('q');
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function ago(d){
+  var t = new Date(d).getTime();
+  if (!t) return '';
+  var m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 1) return 'الآن';
+  if (m < 60) return 'قبل ' + m + ' دقيقة';
+  var h = Math.round(m / 60);
+  if (h < 24) return 'قبل ' + h + ' ساعة';
+  return 'قبل ' + Math.round(h / 24) + ' يوم';
+}
+
+function render(){
+  var term = q.value.trim();
+  var shown = term ? items.filter(function(i){ return i.title.indexOf(term) > -1; }) : items;
+  if (!shown.length){
+    list.innerHTML = '<div class="msg">' + (term ? 'لا توجد عناوين تطابق بحثك.' : 'لا توجد أخبار حالياً.') + '</div>';
+    return;
+  }
+  list.innerHTML = shown.map(function(i, n){
+    var meta = (i.source ? '<b>' + esc(i.source) + '</b> • ' : '') + ago(i.date);
+    return '<a class="item' + (n === 0 && !term ? ' lead' : '') + '" href="' + esc(i.link) +
+      '" target="_blank" rel="noopener"><h2 class="t">' + esc(i.title) + '</h2><div class="m">' + meta + '</div></a>';
+  }).join('');
+}
+
+function load(){
+  list.innerHTML = '<div class="msg">جارٍ تحميل الأخبار…</div>';
+  fetch('/api/news?cat=' + cat)
+    .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
+    .then(function(d){
+      items = d.items || [];
+      updated.textContent = 'آخر تحديث ' + new Date().toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+      render();
+    })
+    .catch(function(){
+      updated.textContent = 'تعذر التحديث';
+      list.innerHTML = '<div class="msg">تعذر جلب الأخبار. تأكد من اتصالك وحاول مرة ثانية.<br><button id="retry">إعادة المحاولة</button></div>';
+      document.getElementById('retry').onclick = load;
+    });
+}
+
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.setAttribute('aria-selected', 'false'); });
+    b.setAttribute('aria-selected', 'true');
+    cat = b.dataset.cat;
+    q.value = '';
+    load();
+  });
+});
+q.addEventListener('input', render);
+setInterval(load, 5 * 60 * 1000);
+load();
+</script>
+</body>
+</html>
